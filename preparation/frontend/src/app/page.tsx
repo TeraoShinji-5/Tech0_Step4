@@ -1,12 +1,12 @@
 "use client";// import先は適宜置き換えてください。
 import React from 'react';
-import QrcodeReaderComponent from './components/Qrcode/QrcodeReaderComponent';
+import QrcodeCashRegister2 from './components/Qrcode/QrcodeCashRegister2';
 
 export default function Home() {
   return (
       <main>
         <div>
-          <QrcodeReaderComponent />
+          <QrcodeCashRegister2 />
         </div>
       </main>
   );
