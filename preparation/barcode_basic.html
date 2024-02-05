@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>最小限のバーコードリーダー</title>
+</head>
+<body>
+    <div id="interactive" class="viewport"></div>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@latest/dist/quagga.min.js"></script>
+    <script>
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#interactive') // カメラ映像表示のための要素
+            },
+            decoder: {
+                readers: ["code_128_reader"] // 基本的なバーコードリーダータイプ
+            }
+        }, function(err) {
+            if (err) {
+                console.log(err);
+                return;
+            }
+            console.log("Initialization finished. Ready to start");
+            Quagga.start();
+        });
+
+        Quagga.onDetected(function(result) {
+            console.log("Barcode detected and processed: ", result.codeResult.code);
+        });
+    </script>
+</body>
+</html>
+
