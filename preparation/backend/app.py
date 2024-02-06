@@ -55,6 +55,13 @@ class Deal_Details(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     buy_time = db.Column(db.DateTime, nullable=True)
 
+class Tax(db.Model):
+    __tablename__ = 'tax'  # ここでテーブル名を指定
+    tax_id = db.Column(db.Integer, primary_key=True, unique=True, nullable=False)
+    tax_code = db.Column(db.Integer, nullable=False)
+    tax_name = db.Column(db.String(80), nullable=False)
+    tax_percent = db.Column(db.Integer, nullable=False)
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -89,7 +96,6 @@ def login():
     return jsonify(access_token=access_token)
 
 
-
 @app.route("/user", methods=['GET'])
 def read_user_info():
     user_id = request.args.get('user_id')
@@ -105,10 +111,6 @@ def read_user_info():
     else:
         # ユーザーが存在しない場合
         return jsonify({"message": "イベントが存在しません"})
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
 
 
 @app.route("/qrcode", methods=['GET'])
@@ -166,4 +168,32 @@ def add_product():
     return jsonify(result)
 
 
+@app.route('/purchase', methods=['POST'])
+def purchase():
+    # 税率を tax テーブルから取得
+    # tax_name が "10%" の税レコードを取得
+    tax_info = Tax.query.filter_by(tax_name="10%").first()
 
+    # 取得したレコードから tax_percent を取得
+    tax_rate = tax_info.tax_percent
+
+    # deal_details テーブルから buy_time が NULL の行を取得し、buy_time を更新
+    deals = Deal_Details.query.filter(Deal_Details.buy_time.is_(None)).all()
+    total_price = sum(deal.price * deal.quantity for deal in deals)
+    for deal in deals:
+        deal.buy_time = datetime.now()
+    db.session.commit()
+
+    # 税込価格を計算（小数点以下を四捨五入して整数に）
+    total_price_tax_included = round(total_price * (1 + tax_rate))
+
+    # 税込価格と税抜価格をクライアントに返送
+    response = {
+        "total_price": total_price,
+        "total_price_tax_included": total_price_tax_included
+    }
+    return jsonify(response)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
