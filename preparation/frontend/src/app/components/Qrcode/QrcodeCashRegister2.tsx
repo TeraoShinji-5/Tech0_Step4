@@ -58,8 +58,30 @@ export default function QrcodeReaderComponent() {
             }
             const data = await response.json();
             setDealDetails(data); // レスポンスデータで状態を更新
+            setScannedResult('');
             console.log(dealDetails);
         };
+
+    // 購入処理関数
+    const handlePurchase = async (event: any) => {
+        try {
+            event.preventDefault(); // フォームのデフォルトの送信を防ぎます
+            const response = await fetch('http://127.0.0.1:5000/purchase', { method: 'POST' });
+            const purchase = await response.json();
+
+            // レスポンスデータを使用してポップアップ表示
+            alert(`合計金額（税込）: ${purchase.total_price_tax_included}円\n税抜価格: ${purchase.total_price}円`);
+
+            // 購買リストとスキャン結果をクリア
+            setDealDetails([]);
+            setScannedResult('');
+            // 必要に応じて他の状態もリセット
+        } catch (error) {
+            console.error('購入処理中にエラーが発生しました:', error);
+            alert('購入処理に失敗しました。');
+        }
+    };
+
 
         return (
             <>
@@ -77,7 +99,12 @@ export default function QrcodeReaderComponent() {
                     <h2>個数：{product.quantity}個</h2>
                 </div>
                 <form onSubmit={handleSubmit}>
+                <div>
                     <button type="submit">追加</button>
+                </div>
+                <div>
+                    <button onClick={handlePurchase}>購入</button>
+                </div>
                 </form>
                 <QrcodeReader
                     onScanSuccess={onNewScanResult}
