@@ -31,6 +31,7 @@ export default function QrcodeReaderComponent() {
             const newProduct = await fetchProduct(scannedResult);
             // 既存のproducts配列に新しい商品を追加
             setProducts(prevProducts => [...prevProducts, newProduct]);
+            setScannedResult('');
             console.log(newProduct);
             console.log(products);
         };
@@ -49,7 +50,7 @@ export default function QrcodeReaderComponent() {
                 {/* 商品と値段を表示 */}
                 {products.map((product, index) => (
                     <div key={index}>
-                        <h2>商品：{product.product_name} 値段：{product.price}円 個数：1個</h2>
+                        <h2>商品：{product.product_name} 値段：{product.price}円 個数：{product.quantity}個</h2>
                     </div>
                 ))}
             </div>
