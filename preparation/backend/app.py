@@ -117,6 +117,7 @@ def read_user_info():
 def read_products_info():
     product_qrcode = request.args.get('qrcode')
     product = Products.query.filter_by(product_qrcode = product_qrcode).first()
+    tax = Tax.query.first()
 
     if product:
         # イベントが存在する場合、詳細情報を返す
@@ -125,6 +126,7 @@ def read_products_info():
             "product_name" : product.product_name,
             "price" : product.price,
             "quantity" : product.quantity,
+            "tax" :tax.tax_percent,
             }
         return jsonify(product_info)
     else:
