@@ -18,20 +18,20 @@ app = Flask(__name__)
 CORS(app, origins=["*"]) # 許可するオリジンを指定
 
 # DBの設定
-app.config['SQLALCHEMY_DATABASE_URI'] = r'sqlite:///C:\Users\zip-b\Tech0 step4\preparation\POS_System.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = r'sqlite:///C:\Users\zip-b\Tech0 step4\preparation\POS_System_Lv3.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # JWTの設定
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-jwt = JWTManager(app) 
+jwt = JWTManager(app)
 
 
 class Products(db.Model):
     __tablename__ = 'products'  # ここでテーブル名を指定
     product_id = db.Column(db.Integer, primary_key=True, unique=True, nullable=False)
     product_name = db.Column(db.String(120), nullable=False)
-    product_qrcode = db.Column(db.String(120), nullable=False)
+    product_qrcode = db.Column(db.String(120),unique=True, nullable=False)
     price = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     last_update = db.Column(db.DateTime, nullable=True)
@@ -48,19 +48,31 @@ class Users(db.Model):
 class Deal_Details(db.Model):
     __tablename__ = 'deal_details'  # ここでテーブル名を指定
     deal_id = db.Column(db.Integer, primary_key=True, unique=True, nullable=False)
-    event_id = db.Column(db.Integer, nullable=False)
-    product_id = db.Column(db.Integer, nullable=False)
+    event_id = db.Column(db.Integer, nullable=True)
+    product_qrcode = db.Column(db.Integer, nullable=False)
     product_name = db.Column(db.String(120), nullable=False)
     price = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    buy_time = db.Column(db.DateTime, nullable=True)
+    tax_percent = db.Column(db.Integer, nullable=False)
+    buy_time = db.Column(db.String(80), nullable=True)
 
 class Tax(db.Model):
     __tablename__ = 'tax'  # ここでテーブル名を指定
     tax_id = db.Column(db.Integer, primary_key=True, unique=True, nullable=False)
-    tax_code = db.Column(db.Integer, nullable=False)
+    tax_code = db.Column(db.Integer, unique=True, nullable=False)
     tax_name = db.Column(db.String(80), nullable=False)
     tax_percent = db.Column(db.Integer, nullable=False)
+
+class Trades(db.Model):
+    __tablename__ = 'trades'  # ここでテーブル名を指定
+    trade_id = db.Column(db.Integer, primary_key=True, unique=True, nullable=False)
+    staff_id = db.Column(db.Integer, nullable=False)
+    machine_id = db.Column(db.Integer, nullable=False)
+    store_id = db.Column(db.Integer, nullable=False)
+    total_charge = db.Column(db.Integer, nullable=False)
+    total_charge_wo_tax = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, nullable=True)
+    buy_time = db.Column(db.String(80), nullable=False)
 
 
 @app.route('/login', methods=['POST'])
@@ -125,6 +137,7 @@ def read_products_info():
             "product_id" : product.product_id,
             "product_name" : product.product_name,
             "price" : product.price,
+            "product_qrcode" : product.product_qrcode,
             "quantity" : product.quantity,
             "tax" :tax.tax_percent,
             }
@@ -195,6 +208,53 @@ def purchase():
         "total_price_tax_included": total_price_tax_included
     }
     return jsonify(response)
+
+
+@app.route('/trade', methods=['POST'])
+def add_trade():
+    # POSTされたデータを取得
+    user_id  = request.json.get('user_id', None)
+    store_id = request.json.get('store_id', None)
+    staff_id = request.json.get('staff_id', None)
+    machine_id = request.json.get('machine_id', None)
+    total_charge = request.json.get('total_charge', None)
+    total_charge_wo_tax = request.json.get('total_charge_wo_tax', None)
+    buy_time_str = request.json.get('buy_time', None).rstrip('Z')
+    buy_time = datetime.fromisoformat(buy_time_str)
+
+    new_trade = Trades(user_id=user_id, store_id=store_id, staff_id=staff_id, machine_id=machine_id,
+                    total_charge=total_charge, total_charge_wo_tax=total_charge_wo_tax, buy_time=buy_time,)
+
+    # セッションに追加してコミット
+    db.session.add(new_trade)
+    db.session.commit()
+
+    # 成功した場合は挿入されたトレードのIDを含むレスポンスを返す
+    return jsonify({'trade_id': new_trade.trade_id}), 201
+
+
+@app.route('/deal_detail', methods=['POST'])
+def add_deal_detail():
+    data = request.json
+    for product in data['products']:
+        # ISO形式の文字列から'Z'を取り除いてからdatetimeオブジェクトに変換
+        buy_time_str = product['buy_time'].rstrip('Z')  # 'Z'を取り除く
+        buy_time = datetime.fromisoformat(buy_time_str)  # datetimeオブジェクトに変換
+
+        new_detail = Deal_Details(
+            product_qrcode=product['product_qrcode'],
+            product_name=product['product_name'],
+            price=product['price'],
+            quantity=product['quantity'],
+            tax_percent=product['tax_percent'],
+            event_id=1,  # 適切なevent_idの取り扱いを確認してください
+            buy_time=buy_time  # 変換したdatetimeオブジェクトを使用
+        )
+        db.session.add(new_detail)
+    db.session.commit()
+
+    # 成功した場合、適切なレスポンスを返す
+    return jsonify({'message': 'Deal details added successfully'}), 201
 
 
 if __name__ == "__main__":

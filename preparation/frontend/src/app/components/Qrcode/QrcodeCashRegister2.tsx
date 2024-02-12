@@ -47,7 +47,7 @@ export default function QrcodeReaderComponent() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                product_id: product.product_id,
+                product_qrcode: product.product_qrcode,
                 product_name: product.product_name,
                 price: product.price,
                 quantity: product.quantity,

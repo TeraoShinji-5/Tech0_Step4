@@ -8,11 +8,9 @@ export default function QrcodeReaderComponent() {
     const [products, setProducts] = useState([]); // 商品を格納するための配列
     const [newProduct, setNewProduct] = useState({}); // 商品を格納するための配列
     const [quantity, setQuantity] = useState(''); // newProduct.quantityを管理するためのローカルステートを追加
-    const [productTax, setProductTax] = useState(0.1); // 商品を格納するための配列
+    const [productTax, setProductTax] = useState(0.1); // 税率を格納するための配列
     const [total, setTotal] = useState(0); // 税抜き合計金額を保持するステート
     const [totalWithTax, setTotalWithTax] = useState(0); // 税込み合計金額を保持するステート
-
-    useEffect(() => {}, [scannedTime, scannedResult]);
 
     // QRコードを読み取った時の関数
     const onNewScanResult = (result: any) => {
@@ -22,6 +20,7 @@ export default function QrcodeReaderComponent() {
         setScannedResult(result);
     };
 
+    // QRコードから商品情報を渡す関数
     async function fetchProduct(scannedResult) {
         const encodedQrcode = encodeURIComponent(scannedResult);
         const res = await fetch(`http://127.0.0.1:5000/qrcode?qrcode=${encodedQrcode}`, { cache: "no-cache" });
@@ -31,6 +30,7 @@ export default function QrcodeReaderComponent() {
         return res.json();
     }
 
+    // 商品情報を購入リストに入れる関数
     useEffect(() => {
         const fetchAndSetProduct = async () => {
             try {
@@ -64,6 +64,7 @@ export default function QrcodeReaderComponent() {
         }
     }, [scannedTime, scannedResult]);
 
+    // 合計金額の表示
     useEffect(() => {
         // 税抜き合計金額を計算
         const newTotal = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
@@ -133,10 +134,24 @@ export default function QrcodeReaderComponent() {
         }
     }, [newProduct]);
 
-    // 購入処理を行う関数
-    const handlePurchase = () => {
+    // 購入処理を行う関数を非同期関数に変更
+    const handlePurchase = async () => {
+        // 現在時刻を取得
+        const currentTime = new Date();
+
         // ポップアップで合計金額を表示
         window.alert(`合計(税込): ${totalWithTax}円 (税抜: ${total}円)`);
+
+        // TradeDBにデータを保存する
+        try {
+            // トレード情報を保存
+            await fetchAndSetTrade(currentTime);
+
+            // ディール詳細を保存
+            await fetchAndDealDetail(currentTime);
+        } catch (error) {
+            console.error("An error occurred during the purchase process:", error);
+        }
 
         // すべての状態をクリア
         setProducts([]);
@@ -146,6 +161,62 @@ export default function QrcodeReaderComponent() {
         setTotal(0);
         setTotalWithTax(0);
     };
+
+    // トレード情報を保存する関数
+    const fetchAndSetTrade = async (buyTime: Date) => {
+        // buyTimeをISO文字列に変換
+        const buyTimeString = buyTime.toISOString();
+
+        const response = await fetch('http://127.0.0.1:5000/trade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: 1,
+                store_id: 1,
+                staff_id: 1,
+                machine_id: 1,
+                total_charge: totalWithTax,
+                total_charge_wo_tax: total,
+                buy_time: buyTimeString,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Trade could not be added');
+        }
+        const data = await response.json();
+        console.log(data);
+    };
+
+    // ディール詳細を保存する関数
+    const fetchAndDealDetail = async (buyTime: Date) => {
+        // buyTimeをISO文字列に変換
+        const buyTimeString = buyTime.toISOString();
+
+        const response = await fetch('http://127.0.0.1:5000/deal_detail', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                products: products.map(product => ({
+                    product_qrcode: product.product_qrcode,
+                    product_name: product.product_name,
+                    price: product.price,
+                    quantity: product.quantity,
+                    tax_percent: productTax,
+                    buy_time: buyTimeString,
+                }))
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Deal Detail could not be added');
+        }
+        const data = await response.json();
+        console.log(data);
+    };
+
 
     return (
         <>
@@ -163,6 +234,8 @@ export default function QrcodeReaderComponent() {
                                 value={quantity}
                                 onChange={handleQuantityChange}
                                 onBlur={handleQuantityBlur}
+                                min="1"
+                                max="99"
                                 style={{ width: '3em' }}
                             />
                             <button onClick={handleEditQuantity}>数量変更</button> {/* 数量変更ボタン */}
@@ -185,9 +258,9 @@ export default function QrcodeReaderComponent() {
                     </div>
                 ))}
             </div>
-             {/* 合計金額を表示 */}
-             <h2>合計:{totalWithTax} 円 （税抜: {total} 円）</h2>
-             <button onClick={handlePurchase}>購入</button>
+            {/* 合計金額を表示 */}
+            <h2>合計:{totalWithTax} 円 （税抜: {total} 円）</h2>
+            <button onClick={handlePurchase}>購入</button>
             <QrcodeReader
                 onScanSuccess={onNewScanResult}
                 onScanFailure={(error: any) => {
