@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>バーコードリーダー</title>
+</head>
+<body>
+    <div id="interactive" class="viewport"></div>
+    <script src="./quagga.js"></script>
+    <script>
+        Quagga.init({
+            inputStream: {
+                name : "Live",
+                type : "LiveStream",
+                target: document.querySelector('#interactive'), // カメラ映像表示のための要素
+                constraints: {
+                    width: { min: 720 },  // 最小幅
+                    height: { min: 480 }  // 最小高さ
+                }
+            },
+            locator: {
+                patchSize: "medium"  // パッチサイズ（"x-small", "small", "medium", "large", "x-large"）
+            },
+            decoder: {
+                readers: [
+                    "ean_reader",        // EAN-13
+                    "ean_8_reader",      // EAN-8
+                    "upc_a_reader",      // UPC-A
+                    "code_128_reader"    // Code 128
+                    // 他の必要なリーダータイプをここに追加
+                ]
+            }
+        }, function(err) {
+            if (err) {
+                console.log(err);
+                return;
+            }
+            Quagga.start();
+        });
+
+        Quagga.onDetected(function(result) {
+            var code = result.codeResult.code;
+            alert("読み取ったバーコード: " + code);
+        });
+    </script>
+</body>
+</html>
+
