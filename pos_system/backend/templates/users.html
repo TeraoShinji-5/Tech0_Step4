@@ -1,0 +1,11 @@
+<table>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.user_id }}</td>
+                <td>{{ user.mail_address }}</td>
+                <td>{{ user.password }}</td>
+            </tr>
+            {% endfor %}
+    </tbody>
+</table>
