@@ -26,6 +26,9 @@ export default function Login() {
         const jsonData = await response.json();
         setCookie('access_token', jsonData.access_token, { path: '/' });
         setCookie('user_name', jsonData.user_name, { path: '/' });
+        setCookie('access_token', jsonData.access_token, { path: '/' });
+        setCookie('user_name', jsonData.user_name, { path: '/' });
+        console.log(cookies);
         window.location.href =`http://127.0.0.1:3000/shopping`;
     } else {
         console.error('Login request failed:', response.statusText);

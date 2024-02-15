@@ -14,13 +14,13 @@ export default function QrcodeReaderComponent(props) {
     const [total, setTotal] = useState(0); // 税抜き合計金額を保持するステート
     const [totalWithTax, setTotalWithTax] = useState(0); // 税込み合計金額を保持するステート
     const [userName, setUserName] = useState(''); // ユーザー名の状態を管理
-    const [cookies] = useCookies(['access_token', 'user_name']); // クッキーから access_token と user_name を取得
+    const [cookies,removeCookie] = useCookies(['access_token', 'user_name']); // クッキーから access_token と user_name を取得
 
     useEffect(() => {
-        // クライアントサイドでのみ実行される
+        // クッキーからユーザー名を取得し、存在しない場合は'ゲスト'をセット
         const cookieUserName = cookies.user_name || 'ゲスト';
-        setUserName(cookieUserName); // useStateを使ってユーザー名を設定
-      }, [cookies]); // cookiesが変更されたときにのみこの効果を実行
+        setUserName(cookieUserName);
+      }, [cookies.user_name]); // cookies.user_nameが変更されたときにのみ実行
 
     // QRコードを読み取った時の関数
     const onNewScanResult = (result: any) => {
@@ -144,10 +144,18 @@ export default function QrcodeReaderComponent(props) {
         }
     }, [newProduct]);
 
-    // 購入処理を行う関数を非同期関数に変更
+    // 日本時間に変換するための関数
+    function getJSTDate() {
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const jstOffset = 9
+         * 60 * 60000; // JSTはUTC+9時間
+        return new Date(utc + jstOffset);
+    }
+
     const handlePurchase = async () => {
-        // 現在時刻を取得
-        const currentTime = new Date();
+        // 日本時間の現在時刻を取得
+        const currentTime = getJSTDate();
 
         // ポップアップで合計金額を表示
         window.alert(`合計(税込): ${totalWithTax}円 (税抜: ${total}円)`);
@@ -170,6 +178,9 @@ export default function QrcodeReaderComponent(props) {
         setProductTax(0.1);
         setTotal(0);
         setTotalWithTax(0);
+        removeCookie['access_token'];
+        removeCookie['user_name'];
+        setUserName('ゲスト');
     };
 
     // トレード情報を保存する関数
@@ -183,7 +194,7 @@ export default function QrcodeReaderComponent(props) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                user_id: 1,
+                token: cookies.access_token,
                 store_id: 1,
                 staff_id: 1,
                 machine_id: 1,
