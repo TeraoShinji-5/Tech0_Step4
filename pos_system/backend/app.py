@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 from flask import jsonify
 from flask_cors import CORS
 from datetime import datetime, timedelta
+from dateutil import parser
 from sqlalchemy import func
 from sqlalchemy import desc
 import json
 import re
+import pytz
 
 
 load_dotenv()  # .env ファイルから環境変数を読み込む
@@ -18,7 +20,7 @@ app = Flask(__name__)
 CORS(app, origins=["*"]) # 許可するオリジンを指定
 
 # DBの設定
-app.config['SQLALCHEMY_DATABASE_URI'] = r'sqlite:///C:\Users\zip-b\Tech0 step4\preparation\POS_System_Lv3.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = r'sqlite:///C:\Users\zip-b\Tech0 step4\pos_system\POS_System_Lv3.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -73,6 +75,13 @@ class Trades(db.Model):
     total_charge_wo_tax = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=True)
     buy_time = db.Column(db.String(80), nullable=False)
+
+# UTCで取得した日時をJSTに変換する関数
+def to_jst(datetime_obj):
+    utc_zone = pytz.utc
+    jst_zone = pytz.timezone('Asia/Tokyo')
+    return datetime_obj.replace(tzinfo=utc_zone).astimezone(jst_zone)
+
 
 
 @app.route('/login', methods=['POST'])
@@ -144,7 +153,7 @@ def read_products_info():
         return jsonify(product_info)
     else:
         # ユーザーが存在しない場合
-        return jsonify({"message": "イベントが存在しません"})
+        return jsonify({"product_name":"商品がマスタ未登録です"})
 
 
 @app.route('/add_product', methods=['POST'])
@@ -213,14 +222,17 @@ def purchase():
 @app.route('/trade', methods=['POST'])
 def add_trade():
     # POSTされたデータを取得
-    user_id  = request.json.get('user_id', None)
+    token  = request.json.get('token', None)
+    user_info = Users.query.filter_by(token=token).first()
+    user_id = user_info.user_id
     store_id = request.json.get('store_id', None)
     staff_id = request.json.get('staff_id', None)
     machine_id = request.json.get('machine_id', None)
     total_charge = request.json.get('total_charge', None)
     total_charge_wo_tax = request.json.get('total_charge_wo_tax', None)
-    buy_time_str = request.json.get('buy_time', None).rstrip('Z')
-    buy_time = datetime.fromisoformat(buy_time_str)
+    buy_time_str = request.json.get('buy_time', None)
+    buy_time_utc = parser.isoparse(buy_time_str)  # タイムゾーン情報を含むUTC日時
+    buy_time = to_jst(buy_time_utc)  # JSTに変換
 
     new_trade = Trades(user_id=user_id, store_id=store_id, staff_id=staff_id, machine_id=machine_id,
                     total_charge=total_charge, total_charge_wo_tax=total_charge_wo_tax, buy_time=buy_time,)
@@ -237,9 +249,10 @@ def add_trade():
 def add_deal_detail():
     data = request.json
     for product in data['products']:
-        # ISO形式の文字列から'Z'を取り除いてからdatetimeオブジェクトに変換
-        buy_time_str = product['buy_time'].rstrip('Z')  # 'Z'を取り除く
-        buy_time = datetime.fromisoformat(buy_time_str)  # datetimeオブジェクトに変換
+        # ISO形式の文字列からdatetimeオブジェクトに変換
+        buy_time_str = product['buy_time']
+        buy_time_utc = parser.isoparse(buy_time_str)
+        buy_time_jst = to_jst(buy_time_utc)  # UTCからJSTに変換
 
         new_detail = Deal_Details(
             product_qrcode=product['product_qrcode'],
@@ -248,12 +261,11 @@ def add_deal_detail():
             quantity=product['quantity'],
             tax_percent=product['tax_percent'],
             event_id=1,  # 適切なevent_idの取り扱いを確認してください
-            buy_time=buy_time  # 変換したdatetimeオブジェクトを使用
+            buy_time=buy_time_jst  # JSTに変換したdatetimeオブジェクトを使用
         )
         db.session.add(new_detail)
     db.session.commit()
 
-    # 成功した場合、適切なレスポンスを返す
     return jsonify({'message': 'Deal details added successfully'}), 201
 
 
