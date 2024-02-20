@@ -1,0 +1,2 @@
+deal_id,event_id,quantity,product_qrcode,product_name,price,tax_percent,buy_time
+1,1,3,2,花串カステラ,30,0.10,"2024-02-15 11:28:27"
